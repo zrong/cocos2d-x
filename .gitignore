@@ -114,6 +114,10 @@ tests/*/publish/
 # Android
 project.properties
 
+# Ignore whole external
+/external
+/external/
+
 # Ignore prebuilt libraries folder
 /external/xxhash/
 /external/curl/
@@ -146,3 +150,4 @@ tests/cpp-tests/Resources/audio
 /external/audio/
 /external/xxtea/
 /external/protobuf-lite/
+
