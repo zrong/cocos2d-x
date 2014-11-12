@@ -37,6 +37,10 @@ THE SOFTWARE.
 #include "unzip.h"
 #include <sys/stat.h>
 
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_WIN32)
+#include <regex>
+#endif
+
 #if (CC_TARGET_PLATFORM == CC_PLATFORM_IOS) || (CC_TARGET_PLATFORM == CC_PLATFORM_MAC)
 #include <ftw.h>
 #endif
@@ -539,7 +543,7 @@ static Data getData(const std::string& filename, bool forString)
     
     Data ret;
     unsigned char* buffer = nullptr;
-    ssize_t size = 0;
+    size_t size = 0;
     size_t readsize;
     const char* mode = nullptr;
     if (forString)
@@ -1058,7 +1062,7 @@ bool FileUtils::createDirectory(const std::string& path)
     if (!(GetFileAttributesEx(wpath.c_str(), GetFileExInfoStandard, &wfad)))
 	{
 		subpath = "";
-		for(int i = 0 ; i < dirs.size() ; ++i)
+		for(unsigned int i = 0 ; i < dirs.size() ; ++i)
 		{
 			subpath += dirs[i];
 			if (i > 0 && !isDirectoryExist(subpath))
@@ -1142,7 +1146,7 @@ bool FileUtils::removeDirectory(const std::string& path)
 	bool ret=true;   
 	if (search!=INVALID_HANDLE_VALUE)   
 	{   
-		bool find=true;   
+		BOOL find=true;   
 		while (find)
 		{ 
 			//. ..
@@ -1164,8 +1168,10 @@ bool FileUtils::removeDirectory(const std::string& path)
 		}
 		FindClose(search);
 	}
-	if (ret)
-		return RemoveDirectory(wpath.c_str());
+    if (ret && RemoveDirectory(wpath.c_str()))
+    {
+        return true;
+    }
 	return false;
 #elif (CC_TARGET_PLATFORM == CC_PLATFORM_WIN32)
 	std::string command = "cmd /c rd /s /q ";
@@ -1232,35 +1238,35 @@ bool FileUtils::removeFile(const std::string &path)
 bool FileUtils::renameFile(const std::string &path, const std::string &oldname, const std::string &name)
 {
     CCASSERT(!path.empty(), "Invalid path");
+    std::string oldPath = path + oldname;
+    std::string newPath = path + name;
     
     // Rename a file
 #if (CC_TARGET_PLATFORM != CC_PLATFORM_WIN32)
-    std::string oldPath = path + oldname;
-    std::string newPath = path + name;
-    if (rename(oldPath.c_str(), newPath.c_str()) != 0)
+    int errorCode = rename(oldPath.c_str(), newPath.c_str());
+    
+    if (0 != errorCode)
     {
-        CCLOGERROR("Fail to rename file %s to %s !", oldPath.c_str(), newPath.c_str());
+        CCLOGERROR("Fail to rename file %s to %s !Error code is %d", oldPath.c_str(), newPath.c_str(), errorCode);
         return false;
     }
     return true;
 #else
-	std::string command = "cmd /c ren ";
-	std::string win32path = path;
-	int len = win32path.length();
-	for (int i = 0; i < len; ++i)
-	{
-		if (win32path[i] == '/')
-		{
-			win32path[i] = '\\';
-		}
-	}
-	// Path may include space.
-	command += win32path + oldname + " " + name;
-
-	if (WinExec(command.c_str(), SW_HIDE) > 31)
-		return true;
-	else
-		return false;
+    std::regex pat("\/");
+    std::string _old = std::regex_replace(oldPath, pat, "\\");
+    std::string _new = std::regex_replace(newPath, pat, "\\");
+    
+    if(FileUtils::getInstance()->isFileExist(_new))
+    {
+        DeleteFileA(_new.c_str());
+    }
+    
+    MoveFileA(_old.c_str(), _new.c_str());
+    
+    if(0 == GetLastError())
+        return true;
+    else
+        return false;
 #endif
 }
 

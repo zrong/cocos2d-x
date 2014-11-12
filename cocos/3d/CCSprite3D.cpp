@@ -31,7 +31,8 @@
 #include "3d/CCMesh.h"
 
 #include "base/CCDirector.h"
-#include "base/CCLight.h"
+#include "2d/CCLight.h"
+#include "2d/CCCamera.h"
 #include "base/ccMacros.h"
 #include "platform/CCPlatformMacros.h"
 #include "platform/CCFileUtils.h"
@@ -88,6 +89,14 @@ bool Sprite3D::loadFromCache(const std::string& path)
             if(it)
             {
                 createNode(it, this, *(spritedata->materialdatas), spritedata->nodedatas->nodes.size() == 1);
+            }
+        }
+        
+        for(const auto& it : spritedata->nodedatas->skeleton)
+        {
+            if(it)
+            {
+                createAttachSprite3DNode(it,*(spritedata->materialdatas));
             }
         }
         
@@ -510,6 +519,23 @@ void Sprite3D::removeAllAttachNode()
     _attachments.clear();
 }
 
+#ifndef NDEBUG
+//Generate a dummy texture when the texture file is missing
+static Texture2D * getDummyTexture()
+{
+    auto texture = Director::getInstance()->getTextureCache()->getTextureForKey("/dummyTexture");
+    if(!texture)
+    {
+        unsigned char data[] ={255,0,0,255};//1*1 pure red picture
+        Image * image =new (std::nothrow) Image();
+        image->initWithRawData(data,sizeof(data),1,1,sizeof(unsigned char));
+        texture=Director::getInstance()->getTextureCache()->addImage(image,"/dummyTexture");
+        image->release();
+    }
+    return texture;
+}
+#endif
+
 void Sprite3D::draw(Renderer *renderer, const Mat4 &transform, uint32_t flags)
 {
     if (_skeleton)
@@ -538,10 +564,28 @@ void Sprite3D::draw(Renderer *renderer, const Mat4 &transform, uint32_t flags)
         }
         auto programstate = mesh->getGLProgramState();
         auto& meshCommand = mesh->getMeshCommand();
-        
+#ifdef NDEBUG
         GLuint textureID = mesh->getTexture() ? mesh->getTexture()->getName() : 0;
-        
-        meshCommand.init(_globalZOrder, textureID, programstate, _blend, mesh->getVertexBuffer(), mesh->getIndexBuffer(), mesh->getPrimitiveType(), mesh->getIndexFormat(), mesh->getIndexCount(), transform);
+#else
+        GLuint textureID = 0;
+        if(mesh->getTexture())
+        {
+            textureID = mesh->getTexture()->getName();
+        }else
+        { //let the mesh use a dummy texture instead of the missing or crashing texture file
+            auto texture = getDummyTexture();
+            mesh->setTexture(texture);
+            textureID = texture->getName();
+        }
+#endif
+        float globalZ = _globalZOrder;
+        bool isTransparent = (mesh->_isTransparent || color.a < 1.f);
+        if (isTransparent && Camera::getVisitingCamera())
+        {   // use the view matrix for Applying to recalculating transparent mesh's Z-Order
+            const auto& viewMat = Camera::getVisitingCamera()->getViewMatrix();
+            globalZ = -(viewMat.m[2] * transform.m[12] + viewMat.m[6] * transform.m[13] + viewMat.m[10] * transform.m[14] + viewMat.m[14]);//fetch the Z from the result matrix
+        }
+        meshCommand.init(globalZ, textureID, programstate, _blend, mesh->getVertexBuffer(), mesh->getIndexBuffer(), mesh->getPrimitiveType(), mesh->getIndexFormat(), mesh->getIndexCount(), transform);
         
         meshCommand.setLightMask(_lightMask);
 
@@ -553,7 +597,7 @@ void Sprite3D::draw(Renderer *renderer, const Mat4 &transform, uint32_t flags)
         }
         //support tint and fade
         meshCommand.setDisplayColor(Vec4(color.r, color.g, color.b, color.a));
-        meshCommand.setTransparent(mesh->_isTransparent);
+        meshCommand.setTransparent(isTransparent);
         renderer->addCommand(&meshCommand);
     }
 }
@@ -640,7 +684,7 @@ Mesh* Sprite3D::getMeshByIndex(int index) const
     return _meshes.at(index);
 }
 
-/**get SubMeshState by Name */
+/**get Mesh by Name */
 Mesh* Sprite3D::getMeshByName(const std::string& name) const
 {
     for (const auto& it : _meshes) {
@@ -648,6 +692,16 @@ Mesh* Sprite3D::getMeshByName(const std::string& name) const
             return it;
     }
     return nullptr;
+}
+
+std::vector<Mesh*> Sprite3D::getMeshArrayByName(const std::string& name) const
+{
+    std::vector<Mesh*> meshes;
+    for (const auto& it : _meshes) {
+        if (it->getName() == name)
+            meshes.push_back(it);
+    }
+    return meshes;
 }
 
 MeshSkin* Sprite3D::getSkin() const

@@ -141,7 +141,7 @@ void CSLoader::destroyInstance()
 CSLoader::CSLoader()
 : _recordJsonPath(true)
 , _jsonPath("")
-, _recordProtocolBuffersPath(true)
+, _recordProtocolBuffersPath(false)
 , _protocolBuffersPath("")
 , _monoCocos2dxVersion("")
 {
@@ -449,7 +449,8 @@ void CSLoader::initNode(Node* node, const rapidjson::Value& json)
 Node* CSLoader::loadSimpleNode(const rapidjson::Value& json)
 {
     Node* node = Node::create();
-    node->retain();
+    // fix memory leak for v3.3
+    //node->retain();
     initNode(node, json);
     
     return node;
@@ -468,8 +469,8 @@ Node* CSLoader::loadSubGraph(const rapidjson::Value& json)
     {
         node = Node::create();
     }
-    
-    node->retain();
+    // fix memory leak for v3.3
+    //node->retain();
     
     initNode(node, json);
     
@@ -507,7 +508,8 @@ Node* CSLoader::loadSprite(const rapidjson::Value& json)
         sprite = Sprite::create();
     }
     
-    sprite->retain();
+    // fix memory leak for v3.3
+    //sprite->retain();
     
     initNode(sprite, json);
     
@@ -529,7 +531,8 @@ Node* CSLoader::loadParticle(const rapidjson::Value& json)
     
     ParticleSystemQuad* particle = ParticleSystemQuad::create(filePath);
     particle->setTotalParticles(num);
-    particle->retain();
+    // fix memory leak for v3.3
+    //particle->retain();
     
     initNode(particle, json);
     
@@ -578,7 +581,8 @@ Node* CSLoader::loadWidget(const rapidjson::Value& json)
         
         std::string guiClassName = getGUIClassName(classname);
         widget = dynamic_cast<Widget*>(ObjectFactory::getInstance()->createObject(guiClassName));
-        widget->retain();
+        // fix memory leak for v3.3
+        //widget->retain();
         
         WidgetReaderProtocol* reader = dynamic_cast<WidgetReaderProtocol*>(ObjectFactory::getInstance()->createObject(readerName));
         
@@ -587,7 +591,9 @@ Node* CSLoader::loadWidget(const rapidjson::Value& json)
     else if (isCustomWidget(classname))
     {
         widget = dynamic_cast<Widget*>(ObjectFactory::getInstance()->createObject(classname));
-        widget->retain();
+        
+        //fix memory leak for v3.3
+        //widget->retain();
         
         //
         // 1st., custom widget parse properties of parent widget with parent widget reader
@@ -697,23 +703,14 @@ Node* CSLoader::createNodeFromProtocolBuffers(const std::string &filename)
 Node* CSLoader::nodeFromProtocolBuffersFile(const std::string &fileName)
 {
     std::string path = fileName;
-    int pos = path.find_last_of('/');
-    //    _protocolBuffersPath = path.substr(0, pos + 1);
     
     std::string fullPath = FileUtils::getInstance()->fullPathForFilename(fileName.c_str());
     Data content = FileUtils::getInstance()->getDataFromFile(fullPath);
     protocolbuffers::CSParseBinary gpbwp;
-    //    protocolbuffers::GUIProtocolBuffersProtobuf gpbwp;
-    if (!gpbwp.ParseFromArray(content.getBytes(), content.getSize()))
+    if (!gpbwp.ParseFromArray(content.getBytes(), (int)content.getSize()))
     {
         return NULL;
     }
-    /*
-     CCLog("dataScale = %d", gpbwp.datascale());
-     CCLog("designHeight = %d", gpbwp.designheight());
-     CCLog("designWidth = %d", gpbwp.designwidth());
-     CCLog("version = %s", gpbwp.version().c_str());
-     */
     
     // decode plist
     int textureSize = gpbwp.textures_size();
@@ -835,7 +832,8 @@ Node* CSLoader::nodeFromProtocolBuffers(const protocolbuffers::NodeTree &nodetre
         readerName.append("Reader");
         
         Widget*               widget = dynamic_cast<Widget*>(ObjectFactory::getInstance()->createObject(guiClassName));
-        widget->retain();
+        //fix memory leak for v3.3
+        //widget->retain();
         
         WidgetReaderProtocol* reader = dynamic_cast<WidgetReaderProtocol*>(ObjectFactory::getInstance()->createObject(readerName));
         reader->setPropsFromProtocolBuffers(widget, nodetree);
@@ -849,7 +847,9 @@ Node* CSLoader::nodeFromProtocolBuffers(const protocolbuffers::NodeTree &nodetre
     else if (isCustomWidget(classname))
     {
         Widget*               widget = dynamic_cast<Widget*>(ObjectFactory::getInstance()->createObject(classname));
-        widget->retain();
+
+        //fix memory leak for v3.3
+        //widget->retain();
         
         //
         // 1st., custom widget parse properties of parent widget with parent widget reader
@@ -955,6 +955,8 @@ void CSLoader::setPropsForNodeFromProtocolBuffers(cocos2d::Node *node,
     int tag             = options.tag();
     int actionTag       = options.actiontag();
     bool visible        = options.visible();
+    float w             = options.width();
+    float h             = options.height();
     
     node->setName(name);
     
@@ -976,6 +978,8 @@ void CSLoader::setPropsForNodeFromProtocolBuffers(cocos2d::Node *node,
         node->setLocalZOrder(zorder);
     if(visible != true)
         node->setVisible(visible);
+    if (w != 0 || h != 0)
+        node->setContentSize(Size(w, h));
     
     node->setTag(tag);
     node->setUserObject(ActionTimelineData::create(actionTag));
@@ -1014,7 +1018,6 @@ void CSLoader::setPropsForSpriteFromProtocolBuffers(cocos2d::Node *node,
             
         case 1:
         {
-			SpriteFrameCache::getInstance()->addSpriteFramesWithFile(_protocolBuffersPath + fileNameData.plistfile());
             std::string path = fileNameData.path();
 			if (path != "")
 			{
@@ -1052,8 +1055,8 @@ void CSLoader::setPropsForSpriteFromProtocolBuffers(cocos2d::Node *node,
      CCLOG("filePath is empty. Create a sprite with no texture");
      }
      */
-    
-    sprite->retain();
+    //fix memory leak for v3.3
+    //sprite->retain();
     
     setPropsForNodeFromProtocolBuffers(sprite, nodeOptions);
     
@@ -1157,8 +1160,6 @@ void CSLoader::setPropsForProjectNodeFromProtocolBuffers(cocos2d::Node *node,
                                                            const protocolbuffers::ProjectNodeOptions &projectNodeOptions,
                                                            const protocolbuffers::WidgetOptions &nodeOptions)
 {
-    const protocolbuffers::ProjectNodeOptions& options = projectNodeOptions;
-    
     setPropsForNodeFromProtocolBuffers(node, nodeOptions);
 }
 
@@ -1253,11 +1254,15 @@ Node* CSLoader::nodeFromXMLFile(const std::string &fileName)
     // xml read
     std::string fullpath = FileUtils::getInstance()->fullPathForFilename(fileName).c_str();
     ssize_t size;
-    std::string content =(char*)FileUtils::getInstance()->getFileData(fullpath, "r", &size);
+    
+    //fix memory leak for v3.3
+    unsigned char* pByte = FileUtils::getInstance()->getFileData(fullpath, "r", &size);
     
     // xml parse
     tinyxml2::XMLDocument* document = new tinyxml2::XMLDocument();
-    document->Parse(content.c_str());
+    document->Parse((const char*)pByte);
+    
+    free(pByte);
     
     const tinyxml2::XMLElement* rootElement = document->RootElement();// Root
     CCLOG("rootElement name = %s", rootElement->Name());
@@ -1281,27 +1286,6 @@ Node* CSLoader::nodeFromXMLFile(const std::string &fileName)
                 createEnabled = true;
                 rootType = "NodeObjectData";
             }
-            //
-            
-            //
-            //            while (attribute)
-            //            {
-            //                std::string name = attribute->Name();
-            //                std::string value = attribute->Value();
-            //                CCLOG("attribute name = %s, value = %s", name, value);
-            //                if (name == "")
-            //                {
-            //                    serializeEnabled = true;
-            //                    rootType = (strcmp("", value) == 0) ? "Node" : value;
-            //                }
-            //
-            //                if (serializeEnabled)
-            //                {
-            //                    break;
-            //                }
-            //
-            //                attribute = attribute->Next();
-            //            }
             //
         }
         
@@ -1390,7 +1374,7 @@ Node* CSLoader::nodeFromXML(const tinyxml2::XMLElement *objectData, const std::s
                 
                 while (attribute)
                 {
-                    std::string name = attribute->Name();
+                    name = attribute->Name();
                     std::string value = attribute->Value();
                     
                     if (name == "Path")
@@ -1437,7 +1421,9 @@ Node* CSLoader::nodeFromXML(const tinyxml2::XMLElement *objectData, const std::s
         readerName.append("Reader");
         
         Widget*               widget = dynamic_cast<Widget*>(ObjectFactory::getInstance()->createObject(guiClassName));
-        widget->retain();
+        
+        //fix memory leak for v3.3
+        //widget->retain();
         
         WidgetReaderProtocol* reader = dynamic_cast<WidgetReaderProtocol*>(ObjectFactory::getInstance()->createObject(readerName));
         reader->setPropsFromXML(widget, objectData);
@@ -1568,7 +1554,7 @@ void CSLoader::setPropsForNodeFromXML(cocos2d::Node *node, const tinyxml2::XMLEl
     const tinyxml2::XMLAttribute* attribute = nodeObjectData->FirstAttribute();
     while (attribute)
     {
-        std::string name = attribute->Name();
+        name = attribute->Name();
         std::string value = attribute->Value();
         
         if (name == "Name")
@@ -1587,21 +1573,13 @@ void CSLoader::setPropsForNodeFromXML(cocos2d::Node *node, const tinyxml2::XMLEl
         {
             node->setRotationSkewY(atof(value.c_str()));
         }
-        else if (name == "Rotation")
-        {
-//            node->setRotation(atoi(value.c_str()));
-        }
         else if (name == "ZOrder")
         {
             node->setZOrder(atoi(value.c_str()));
         }
-        else if (name == "Visible")
-        {
-            node->setVisible((value == "True") ? true : false);
-        }
         else if (name == "VisibleForFrame")
         {
-//            node->setVisible((value == "True") ? true : false);
+            node->setVisible((value == "True") ? true : false);
         }
         else if (name == "Alpha")
         {
@@ -1618,18 +1596,18 @@ void CSLoader::setPropsForNodeFromXML(cocos2d::Node *node, const tinyxml2::XMLEl
     const tinyxml2::XMLElement* child = nodeObjectData->FirstChildElement();
     while (child)
     {
-        std::string name = child->Name();
+        name = child->Name();
         if (name == "Children")
         {
             break;
         }
         else if (name == "Position")
         {
-            const tinyxml2::XMLAttribute* attribute = child->FirstAttribute();
+            attribute = child->FirstAttribute();
             
             while (attribute)
             {
-                std::string name = attribute->Name();
+                name = attribute->Name();
                 std::string value = attribute->Value();
                 
                 if (name == "X")
@@ -1646,11 +1624,11 @@ void CSLoader::setPropsForNodeFromXML(cocos2d::Node *node, const tinyxml2::XMLEl
         }
         else if (name == "Scale")
         {
-            const tinyxml2::XMLAttribute* attribute = child->FirstAttribute();
+            attribute = child->FirstAttribute();
             
             while (attribute)
             {
-                std::string name = attribute->Name();
+                name = attribute->Name();
                 std::string value = attribute->Value();
                 
                 if (name == "ScaleX")
@@ -1667,14 +1645,14 @@ void CSLoader::setPropsForNodeFromXML(cocos2d::Node *node, const tinyxml2::XMLEl
         }
         else if (name == "AnchorPoint")
         {
-            const tinyxml2::XMLAttribute* attribute = child->FirstAttribute();
+            attribute = child->FirstAttribute();
             
             float anchorX = 0.0f;
             float anchorY = 0.0f;
             
             while (attribute)
             {
-                std::string name = attribute->Name();
+                name = attribute->Name();
                 std::string value = attribute->Value();
                 
                 if (name == "ScaleX")
@@ -1693,12 +1671,12 @@ void CSLoader::setPropsForNodeFromXML(cocos2d::Node *node, const tinyxml2::XMLEl
         }
         else if (name == "CColor")
         {
-            const tinyxml2::XMLAttribute* attribute = child->FirstAttribute();
+            attribute = child->FirstAttribute();
             int opacity = 255, red = 255, green = 255, blue = 255;
             
             while (attribute)
             {
-                std::string name = attribute->Name();
+                name = attribute->Name();
                 std::string value = attribute->Value();
                 
                 if (name == "A")
@@ -1726,12 +1704,12 @@ void CSLoader::setPropsForNodeFromXML(cocos2d::Node *node, const tinyxml2::XMLEl
         }
         else if (name == "Size")
         {
-            const tinyxml2::XMLAttribute* attribute = child->FirstAttribute();
+            attribute = child->FirstAttribute();
             float width = 0.0f, height = 0.0f;
             
             while (attribute)
             {
-                std::string name = attribute->Name();
+                name = attribute->Name();
                 std::string value = attribute->Value();
                 
                 if (name == "X")
@@ -1797,13 +1775,13 @@ void CSLoader::setPropsForSpriteFromXML(cocos2d::Node *node, const tinyxml2::XML
         
         if (name == "FileData")
         {
-            const tinyxml2::XMLAttribute* attribute = child->FirstAttribute();
+            attribute = child->FirstAttribute();
             int resourceType = 0;
             std::string path = "", plistFile = "";
             
             while (attribute)
             {
-                std::string name = attribute->Name();
+                name = attribute->Name();
                 std::string value = attribute->Value();
                 
                 if (name == "Path")
@@ -1872,7 +1850,7 @@ Node* CSLoader::createParticleFromXML(const tinyxml2::XMLElement *particleObject
             
             while (attribute)
             {
-                std::string name = attribute->Name();
+                name = attribute->Name();
                 std::string value = attribute->Value();
                 
                 if (name == "Path")
@@ -1936,7 +1914,7 @@ Node* CSLoader::createTMXTiledMapFromXML(const tinyxml2::XMLElement *tmxTiledMap
             
             while (attribute)
             {
-                std::string name = attribute->Name();
+                name = attribute->Name();
                 std::string value = attribute->Value();
                 
                 if (name == "Path")
@@ -2042,13 +2020,13 @@ void CSLoader::setPropsForComAudioFromXML(cocos2d::Component *component, const t
         
         if (name == "FileData")
         {
-            const tinyxml2::XMLAttribute* attribute = child->FirstAttribute();
+            attribute = child->FirstAttribute();
             int resourceType = 0;
             std::string path = "", plistFile = "";
             
             while (attribute)
             {
-                std::string name = attribute->Name();
+                name = attribute->Name();
                 std::string value = attribute->Value();
                 
                 if (name == "Path")
