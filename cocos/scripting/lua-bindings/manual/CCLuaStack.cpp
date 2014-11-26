@@ -56,11 +56,45 @@ extern "C" {
 
 
 namespace {
+    
+static timeval lua_print_lasttime = {0};
+
+std::string lua_print_gettime()
+{
+    timeval now;
+    float deltatime = 0;
+    if(gettimeofday(&now, nullptr) != 0)
+    {
+        CCLOG("lua_print_gettime() - error in gettimeofday");
+    }
+    else
+    {
+        if (lua_print_lasttime.tv_sec)
+        {
+            deltatime = now.tv_sec - lua_print_lasttime.tv_sec + (now.tv_usec - lua_print_lasttime.tv_usec) / 1000000.0f;
+        }
+        else
+        {
+            lua_print_lasttime = now;
+            deltatime = 0;
+        }
+    }
+    
+    std::string t("[");
+    char timestr[32];
+    memset(timestr, 0, sizeof(timestr));
+    sprintf(timestr, "%.4f", deltatime);
+    t += timestr;
+    t += "] ";
+    return t;
+}
+
 int lua_print(lua_State * luastate)
 {
     int nargs = lua_gettop(luastate);
 
-    std::string t;
+    std::string t(lua_print_gettime());
+    
     for (int i=1; i <= nargs; i++)
     {
         if (lua_istable(luastate, i))
@@ -93,7 +127,7 @@ int lua_print(lua_State * luastate)
         if (i!=nargs)
             t += "\t";
     }
-    CCLOG("[LUA-print] %s", t.c_str());
+    CCLOG("%s", t.c_str());
 
     return 0;
 }
@@ -169,6 +203,7 @@ LuaStack *LuaStack::attach(lua_State *L)
 
 bool LuaStack::init(void)
 {
+    gettimeofday(&lua_print_lasttime, nullptr);
     _state = lua_open();
     luaL_openlibs(_state);
     toluafix_open(_state);
