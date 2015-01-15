@@ -91,7 +91,7 @@ g_guisTests[] =
             UISceneManager* sceneManager = UISceneManager::sharedUISceneManager();
             sceneManager->setCurrentUISceneId(kUIButtonTest);
             sceneManager->setMinUISceneId(kUIButtonTest);
-            sceneManager->setMaxUISceneId(kUIButtonTitleEffectTest);
+            sceneManager->setMaxUISceneId(kUIButtonDisableDefaultTest);
             Scene* scene = sceneManager->currentUIScene();
             Director::getInstance()->replaceScene(scene);
         }
@@ -103,7 +103,7 @@ g_guisTests[] =
             UISceneManager* sceneManager = UISceneManager::sharedUISceneManager();
             sceneManager->setCurrentUISceneId(kUICheckBoxTest);
             sceneManager->setMinUISceneId(kUICheckBoxTest);
-            sceneManager->setMaxUISceneId(kUICheckBoxTest);
+            sceneManager->setMaxUISceneId(kUICheckBoxDefaultBehaviorTest);
             Scene* scene = sceneManager->currentUIScene();
             Director::getInstance()->replaceScene(scene);
         }
@@ -115,7 +115,7 @@ g_guisTests[] =
             UISceneManager* sceneManager = UISceneManager::sharedUISceneManager();
             sceneManager->setCurrentUISceneId(kUISliderTest);
             sceneManager->setMinUISceneId(kUISliderTest);
-            sceneManager->setMaxUISceneId(kUISliderTest_Scale9);
+            sceneManager->setMaxUISceneId(kUISliderDisabledDefaultTest);
             Scene* scene = sceneManager->currentUIScene();
             Director::getInstance()->replaceScene(scene);
         }
@@ -127,7 +127,7 @@ g_guisTests[] =
             UISceneManager* sceneManager = UISceneManager::sharedUISceneManager();
             sceneManager->setCurrentUISceneId(kUIImageViewTest);
             sceneManager->setMinUISceneId(kUIImageViewTest);
-            sceneManager->setMaxUISceneId(kUIImageViewTest_ContentSize);
+            sceneManager->setMaxUISceneId(kUIImageViewFlipTest);
             Scene* scene = sceneManager->currentUIScene();
             Director::getInstance()->replaceScene(scene);
         }
@@ -163,7 +163,7 @@ g_guisTests[] =
             UISceneManager* sceneManager = UISceneManager::sharedUISceneManager();
             sceneManager->setCurrentUISceneId(kUITextTest);
             sceneManager->setMinUISceneId(kUITextTest);
-            sceneManager->setMaxUISceneId(kUITextTest_TTF);
+            sceneManager->setMaxUISceneId(kUITextTest_IgnoreConentSize);
             Scene* scene = sceneManager->currentUIScene();
             Director::getInstance()->replaceScene(scene);
         }
@@ -199,7 +199,7 @@ g_guisTests[] =
             UISceneManager* sceneManager = UISceneManager::sharedUISceneManager();
             sceneManager->setCurrentUISceneId(kUILayoutTest);
             sceneManager->setMinUISceneId(kUILayoutTest);
-            sceneManager->setMaxUISceneId(kUILayoutTest_Layout_Relative_Location);
+            sceneManager->setMaxUISceneId(kUILayoutComponent_Berth_Stretch_Test);
             Scene* scene = sceneManager->currentUIScene();
             Director::getInstance()->replaceScene(scene);
         }

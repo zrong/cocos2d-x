@@ -57,8 +57,17 @@ THE SOFTWARE.
 #include "base/CCConsole.h"
 #include "base/CCAutoreleasePool.h"
 #include "base/CCConfiguration.h"
+#include "base/CCAsyncTaskPool.h"
 #include "platform/CCApplication.h"
 //#include "platform/CCGLViewImpl.h"
+
+#if CC_ENABLE_SCRIPT_BINDING
+#include "CCScriptSupport.h"
+#endif
+
+#if CC_USE_PHYSICS
+#include "physics/CCPhysicsWorld.h"
+#endif
 
 /**
  Position of the FPS
@@ -67,7 +76,7 @@ THE SOFTWARE.
  */
 #ifndef CC_DIRECTOR_STATS_POSITION
 #define CC_DIRECTOR_STATS_POSITION Director::getInstance()->getVisibleOrigin()
-#endif
+#endif // CC_DIRECTOR_STATS_POSITION
 
 using namespace std;
 
@@ -117,14 +126,18 @@ bool Director::init(void)
     _accumDt = 0.0f;
     _frameRate = 0.0f;
     _FPSLabel = _drawnBatchesLabel = _drawnVerticesLabel = nullptr;
-    _totalFrames = _frames = 0;
+    _totalFrames = 0;
     _lastUpdate = new struct timeval;
+    _secondsPerFrame = 1.0f;
 
     // paused ?
     _paused = false;
 
     // purge ?
     _purgeDirectorInNextLoop = false;
+    
+    // restart ?
+    _restartDirectorInNextLoop = false;
 
     _winSizeInPoints = Size::ZERO;
 
@@ -239,9 +252,6 @@ void Director::setGLDefaultValues()
     // [self setDepthTest: view_.depthFormat];
     setDepthTest(false);
     setProjection(_projection);
-
-    // set other opengl default values
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 }
 
 // Draw the Scene
@@ -250,12 +260,6 @@ void Director::drawScene()
     // calculate "global" dt
     calculateDeltaTime();
     
-    // skip one flame when _deltaTime equal to zero.
-    if(_deltaTime < FLT_EPSILON)
-    {
-        return;
-    }
-
     if (_openGLView)
     {
         _openGLView->pollEvents();
@@ -268,7 +272,7 @@ void Director::drawScene()
         _eventDispatcher->dispatchEvent(_eventAfterUpdate);
     }
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    _renderer->clear();
 
     /* to avoid flickr, nextScene MUST be here: after tick and before draw.
      * FIXME: Which bug is this one. It seems that it can't be reproduced with v0.9
@@ -282,6 +286,13 @@ void Director::drawScene()
     
     if (_runningScene)
     {
+#if CC_USE_PHYSICS
+        auto physicsWorld = _runningScene->getPhysicsWorld();
+        if (physicsWorld && physicsWorld->isAutoStep())
+        {
+            physicsWorld->update(_deltaTime, false);
+        }
+#endif
         //clear draw stats
         _renderer->clearDrawStats();
         
@@ -430,7 +441,13 @@ void Director::setNextDeltaTimeZero(bool nextDeltaTimeZero)
 {
     _nextDeltaTimeZero = nextDeltaTimeZero;
 }
-   
+
+//
+// FIXME TODO
+// Matrix code MUST NOT be part of the Director
+// MUST BE moved outide.
+// Why the Director must have this code ?
+//
 void Director::initMatrixStack()
 {
     while (!_modelViewMatrixStack.empty())
@@ -698,6 +715,11 @@ void Director::setDepthTest(bool on)
     CHECK_GL_ERROR_DEBUG();
 }
 
+void Director::setClearColor(const Color4F& clearColor)
+{
+    _renderer->setClearColor(clearColor);
+}
+
 static void GLToClipTransform(Mat4 *transformOut)
 {
     if(nullptr == transformOut) return;
@@ -921,17 +943,22 @@ void Director::end()
     _purgeDirectorInNextLoop = true;
 }
 
-void Director::purgeDirector()
+void Director::restart()
+{
+    _restartDirectorInNextLoop = true;
+}
+
+void Director::reset()
 {
     // cleanup scheduler
     getScheduler()->unscheduleAll();
     
-    // Disable event dispatching
+    // Remove all events
     if (_eventDispatcher)
     {
-        _eventDispatcher->setEnabled(false);
+        _eventDispatcher->removeAllEventListeners();
     }
-
+    
     if (_runningScene)
     {
         _runningScene->onExit();
@@ -941,22 +968,22 @@ void Director::purgeDirector()
     
     _runningScene = nullptr;
     _nextScene = nullptr;
-
+    
     // remove all objects, but don't release it.
     // runWithScene might be executed after 'end'.
     _scenesStack.clear();
-
+    
     stopAnimation();
-
+    
     CC_SAFE_RELEASE_NULL(_FPSLabel);
     CC_SAFE_RELEASE_NULL(_drawnBatchesLabel);
     CC_SAFE_RELEASE_NULL(_drawnVerticesLabel);
-
+    
     // purge bitmap cache
     FontFNT::purgeCachedData();
-
+    
     FontFreeType::shutdownFreeType();
-
+    
     // purge all managed caches
     
 #if defined(__GNUC__) && ((__GNUC__ >= 4) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1)))
@@ -965,7 +992,10 @@ void Director::purgeDirector()
 #pragma warning (push)
 #pragma warning (disable: 4996)
 #endif
+//it will crash clang static analyzer so hide it if __clang_analyzer__ defined
+#ifndef __clang_analyzer__
     DrawPrimitives::free();
+#endif
 #if defined(__GNUC__) && ((__GNUC__ >= 4) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1)))
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #elif _MSC_VER >= 1400 //vs 2005 or higher
@@ -976,13 +1006,19 @@ void Director::purgeDirector()
     GLProgramCache::destroyInstance();
     GLProgramStateCache::destroyInstance();
     FileUtils::destroyInstance();
-
+    AsyncTaskPool::destoryInstance();
+    
     // cocos2d-x specific data structures
     UserDefault::destroyInstance();
     
     GL::invalidateStateCache();
     
     destroyTextureCache();
+}
+
+void Director::purgeDirector()
+{
+    reset();
 
     CHECK_GL_ERROR_DEBUG();
     
@@ -995,6 +1031,26 @@ void Director::purgeDirector()
 
     // delete Director
     release();
+}
+
+void Director::restartDirector()
+{
+    reset();
+    
+    // Texture cache need to be reinitialized
+    initTextureCache();
+    
+    // Reschedule for action manager
+    getScheduler()->scheduleUpdate(getActionManager(), Scheduler::PRIORITY_SYSTEM, false);
+    
+    // release the objects
+    PoolManager::getInstance()->getCurrentPool()->clear();
+    
+    // Real restart in script level
+#if CC_ENABLE_SCRIPT_BINDING
+    ScriptEvent scriptEvent(kRestartGame, NULL);
+    ScriptEngineManager::getInstance()->getScriptEngine()->sendEvent(&scriptEvent);
+#endif
 }
 
 void Director::setNextScene()
@@ -1069,22 +1125,27 @@ void Director::showStats()
 {
     static unsigned long prevCalls = 0;
     static unsigned long prevVerts = 0;
+    static float prevDeltaTime  = 0.016; // 60FPS
+    static const float FPS_FILTER = 0.10;
 
-    ++_frames;
     _accumDt += _deltaTime;
     
     if (_displayStats && _FPSLabel && _drawnBatchesLabel && _drawnVerticesLabel)
     {
         char buffer[30];
 
+        float dt = _deltaTime * FPS_FILTER + (1-FPS_FILTER) * prevDeltaTime;
+        prevDeltaTime = dt;
+        _frameRate = 1/dt;
+
+        // Probably we don't need this anymore since
+        // the framerate is using a low-pass filter
+        // to make the FPS stable
         if (_accumDt > CC_DIRECTOR_STATS_INTERVAL)
         {
-            _frameRate = _frames / _accumDt;
-            _frames = 0;
-            _accumDt = 0;
-
             sprintf(buffer, "%.1f / %.3f", _frameRate, _secondsPerFrame);
             _FPSLabel->setString(buffer);
+            _accumDt = 0;
         }
 
         auto currentCalls = (unsigned long)_renderer->getDrawnBatches();
@@ -1101,8 +1162,7 @@ void Director::showStats()
             prevVerts = currentVerts;
         }
 
-        Mat4 identity = Mat4::IDENTITY;
-
+        const Mat4& identity = Mat4::IDENTITY;
         _drawnVerticesLabel->visit(_renderer, identity, 0);
         _drawnBatchesLabel->visit(_renderer, identity, 0);
         _FPSLabel->visit(_renderer, identity, 0);
@@ -1111,10 +1171,16 @@ void Director::showStats()
 
 void Director::calculateMPF()
 {
+    static float prevSecondsPerFrame = 0;
+    static const float MPF_FILTER = 0.10;
+
     struct timeval now;
     gettimeofday(&now, nullptr);
     
     _secondsPerFrame = (now.tv_sec - _lastUpdate->tv_sec) + (now.tv_usec - _lastUpdate->tv_usec) / 1000000.0f;
+
+    _secondsPerFrame = _secondsPerFrame * MPF_FILTER + (1-MPF_FILTER) * prevSecondsPerFrame;
+    prevSecondsPerFrame = _secondsPerFrame;
 }
 
 // returns the FPS image data pointer and len
@@ -1273,6 +1339,11 @@ void DisplayLinkDirector::mainLoop()
     {
         _purgeDirectorInNextLoop = false;
         purgeDirector();
+    }
+    else if (_restartDirectorInNextLoop)
+    {
+        _restartDirectorInNextLoop = false;
+        restartDirector();
     }
     else if (! _invalid)
     {

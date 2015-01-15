@@ -64,6 +64,8 @@ public:
 
     void setLightMask(unsigned int lightmask) { _lightMask = lightmask; }
     
+    void setTransparent(bool value);
+    
     void execute();
     
     //used for bath
@@ -75,7 +77,7 @@ public:
     
     uint32_t getMaterialID() const { return _materialID; }
     
-#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID || CC_TARGET_PLATFORM == CC_PLATFORM_WP8)
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID || CC_TARGET_PLATFORM == CC_PLATFORM_WP8 || CC_TARGET_PLATFORM == CC_PLATFORM_WINRT)
     void listenRendererRecreated(EventCustom* event);
 #endif
 
@@ -129,7 +131,7 @@ protected:
 
     unsigned int _lightMask;
 
-#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID || CC_TARGET_PLATFORM == CC_PLATFORM_WP8)
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID || CC_TARGET_PLATFORM == CC_PLATFORM_WP8 || CC_TARGET_PLATFORM == CC_PLATFORM_WINRT)
     EventListenerCustom* _rendererRecreatedListener;
 #endif
 };
