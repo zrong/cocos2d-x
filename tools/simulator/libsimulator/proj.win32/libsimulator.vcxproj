@@ -100,8 +100,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\lib\cocos2dx_extra.h" />
-    <ClInclude Include="..\lib\network\CCHTTPRequest.h" />
-    <ClInclude Include="..\lib\network\CCHTTPRequestDelegate.h" />
     <ClInclude Include="..\lib\platform\win32\PlayerEditBoxServiceWin.h" />
     <ClInclude Include="..\lib\platform\win32\PlayerFileDialogServiceWin.h" />
     <ClInclude Include="..\lib\platform\win32\PlayerMenuServiceWin.h" />
@@ -166,7 +164,6 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\lib\network\CCHTTPRequest.cpp" />
     <ClCompile Include="..\lib\platform\win32\DeviceEx-win32.cpp" />
     <ClCompile Include="..\lib\platform\win32\PlayerEditBoxServiceWin.cpp" />
     <ClCompile Include="..\lib\platform\win32\PlayerFileDialogServiceWin.cpp" />
