@@ -37,7 +37,6 @@ THE SOFTWARE.
 
 #if ((CC_TARGET_PLATFORM == CC_PLATFORM_WIN32) || (CC_TARGET_PLATFORM == CC_PLATFORM_MAC))
 #include "DeviceEx.h"
-#include "network/CCHTTPRequest.h"
 #include "xxhash/xxhash.h"
 #endif
 
@@ -221,7 +220,6 @@ void RuntimeEngine::startScript(const std::string &args)
         _runtime->startScript(args);
     }
     
-    trackLaunchEvent();
 }
 
 void RuntimeEngine::start()
@@ -322,51 +320,4 @@ void RuntimeEngine::updateConfigParser()
 
     parser->setEntryFile(entryFile);
     parser->setBindAddress(_project.getBindAddress());
-}
-
-//
-// NOTE: track event on windows / mac platform
-//
-void RuntimeEngine::trackEvent(const std::string &eventName)
-{
-    if (!_eventTrackingEnable)
-    {
-        return ;
-    }
-    
-#if ((CC_TARGET_PLATFORM == CC_PLATFORM_WIN32) || (CC_TARGET_PLATFORM == CC_PLATFORM_MAC))
-    
-#if (CC_TARGET_PLATFORM == CC_PLATFORM_WIN32)
-    const char *platform = "win";
-#elif (CC_TARGET_PLATFORM == CC_PLATFORM_MAC)
-    const char *platform = "mac";
-#else
-    const char *platform = "UNKNOWN";
-#endif
-    
-    char cidBuf[64] = {0};
-    auto guid = player::DeviceEx::getInstance()->getUserGUID();
-    snprintf(cidBuf, sizeof(cidBuf), "%x", XXH32(guid.c_str(), (int)guid.length(), 0));
-    auto request = extra::HTTPRequest::createWithUrl(NULL,
-                                                     "http://www.google-analytics.com/collect",
-                                                     kCCHTTPRequestMethodPOST);
-    request->addPOSTValue("v", "1");
-    request->addPOSTValue("tid", "UA-58200293-1");
-    request->addPOSTValue("cid", cidBuf);
-    request->addPOSTValue("t", "event");
-    
-    request->addPOSTValue("an", "simulator");
-    request->addPOSTValue("av", cocos2dVersion());
-    
-    request->addPOSTValue("ec", platform);
-    request->addPOSTValue("ea", eventName.c_str());
-    
-    request->start();
-    
-#endif // ((CC_TARGET_PLATFORM == CC_PLATFORM_WIN32) || (CC_TARGET_PLATFORM == CC_PLATFORM_MAC))
-}
-
-void RuntimeEngine::trackLaunchEvent()
-{
-    trackEvent(_launchEvent);
 }
