@@ -300,6 +300,12 @@ void Director::drawScene()
         _runningScene->render(_renderer);
         
         _eventDispatcher->dispatchEvent(_eventAfterVisit);
+#if CC_USE_PHYSICS
+        if(physicsWorld)
+        {
+            physicsWorld->_updateBodyTransform = false;
+        }
+#endif
     }
 
     // draw the notifications node
@@ -701,18 +707,7 @@ void Director::setAlphaBlending(bool on)
 
 void Director::setDepthTest(bool on)
 {
-    if (on)
-    {
-        glClearDepth(1.0f);
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LEQUAL);
-//        glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-    }
-    else
-    {
-        glDisable(GL_DEPTH_TEST);
-    }
-    CHECK_GL_ERROR_DEBUG();
+    _renderer->setDepthTest(on);
 }
 
 void Director::setClearColor(const Color4F& clearColor)

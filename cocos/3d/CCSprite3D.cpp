@@ -729,7 +729,7 @@ void Sprite3D::draw(Renderer *renderer, const Mat4 &transform, uint32_t flags)
             //fetch the Z from the result matrix
             globalZ = -(viewMat.m[2] * transform.m[12] + viewMat.m[6] * transform.m[13] + viewMat.m[10] * transform.m[14] + viewMat.m[14]);
         }
-        meshCommand.init(globalZ, textureID, programstate, _blend, mesh->getVertexBuffer(), mesh->getIndexBuffer(), mesh->getPrimitiveType(), mesh->getIndexFormat(), mesh->getIndexCount(), transform);
+        meshCommand.init(globalZ, textureID, programstate, _blend, mesh->getVertexBuffer(), mesh->getIndexBuffer(), mesh->getPrimitiveType(), mesh->getIndexFormat(), mesh->getIndexCount(), transform, flags);
         
         meshCommand.setLightMask(_lightMask);
 
@@ -741,6 +741,10 @@ void Sprite3D::draw(Renderer *renderer, const Mat4 &transform, uint32_t flags)
         }
         //support tint and fade
         meshCommand.setDisplayColor(Vec4(color.r, color.g, color.b, color.a));
+        if (_forceDepthWrite)
+        {
+            meshCommand.setDepthWriteEnabled(true);
+        }
         meshCommand.setTransparent(isTransparent);
         renderer->addCommand(&meshCommand);
     }
@@ -799,6 +803,12 @@ const AABB& Sprite3D::getAABB() const
     }
     
     return _aabb;
+}
+
+Action* Sprite3D::runAction(Action *action)
+{
+    setForceDepthWrite(true);
+    return Node::runAction(action);
 }
 
 Rect Sprite3D::getBoundingBox() const
