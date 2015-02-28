@@ -84,21 +84,21 @@ extern "C"
             }
             
             pos = prefix.find("?.lua");
-//            chunkName = prefix.substr(0, pos) + filename + BYTECODE_FILE_EXT;
-//            if (utils->isFileExist(chunkName))
-//            {
-//                chunk = utils->getFileData(chunkName.c_str(), "rb", &chunkSize);
-//                break;
-//            }
-//            else
-//            {
+            chunkName = prefix.substr(0, pos) + filename + BYTECODE_FILE_EXT;
+            if (utils->isFileExist(chunkName))
+            {
+                chunk = utils->getFileData(chunkName.c_str(), "rb", &chunkSize);
+                break;
+            }
+            else
+            {
                 chunkName = prefix.substr(0, pos) + filename + NOT_BYTECODE_FILE_EXT;
                 if (utils->isFileExist(chunkName))
                 {
                     chunk = utils->getFileData(chunkName.c_str(), "rb", &chunkSize);
                     break;
                 }
-//            }
+            }
             
             begin = next + 1;
             next = searchpath.find_first_of(";", begin);
