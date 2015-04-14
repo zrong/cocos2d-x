@@ -175,6 +175,11 @@ Node::~Node()
     {
         ScriptEngineManager::getInstance()->getScriptEngine()->removeScriptHandler(_updateScriptHandler);
     }
+
+    //guodi add for touch bug
+    //2015-04-13
+    ScriptEngineManager::getInstance()->getScriptEngine()->removeTouchNodeEvent(this);
+
 #endif
 
     // User object has to be released before others, since userObject may have a weak reference of this node

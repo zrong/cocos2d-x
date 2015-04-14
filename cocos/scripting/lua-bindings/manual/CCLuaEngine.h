@@ -84,6 +84,10 @@ public:
      */
     virtual void removeScriptHandler(int nHandler);
     
+    //guodi add for touch bug
+    //2015-04-13
+    virtual void removeTouchNodeEvent(Node *node);
+
     /**
      @brief Reallocate Lua function reference
      */

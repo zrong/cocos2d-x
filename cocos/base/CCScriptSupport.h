@@ -391,6 +391,10 @@ public:
      * @lua NA
      */
     virtual void removeScriptHandler(int handler) {};
+
+    //guodi add for touch bug
+    //2015-04-13
+    virtual void removeTouchNodeEvent(Node *node) {};
     
     /** Reallocate script function handler, only LuaEngine class need to implement this function. 
      * @js NA
