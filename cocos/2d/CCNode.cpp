@@ -178,8 +178,9 @@ Node::~Node()
 
     //guodi add for touch bug
     //2015-04-13
+#if CC_LUA_ENGINE_ENABLED
     ScriptEngineManager::getInstance()->getScriptEngine()->removeTouchNodeEvent(this);
-
+#endif
 #endif
 
     // User object has to be released before others, since userObject may have a weak reference of this node
